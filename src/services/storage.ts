@@ -47,7 +47,21 @@ export const storage = {
 
   getHandovers: (): Handover[] => {
     const data = localStorage.getItem(HANDOVERS_KEY);
-    return data ? JSON.parse(data) : [];
+    if (!data) return [];
+    try {
+      const handovers: any[] = JSON.parse(data);
+      return handovers.map(h => ({
+        ...h,
+        endorsedBy: Array.isArray(h.endorsedBy) ? h.endorsedBy : (h.endorsedBy ? [h.endorsedBy] : []),
+        endorsedTo: Array.isArray(h.endorsedTo) ? h.endorsedTo : (h.endorsedTo ? [h.endorsedTo] : (h.receivedBy ? [h.receivedBy] : [])),
+        urgency: h.urgency || 'medium',
+        title: h.title || '',
+        description: h.description || h.notes || ''
+      }));
+    } catch (e) {
+      console.error('Failed to parse handovers', e);
+      return [];
+    }
   },
 
   saveHandovers: (handovers: Handover[]) => {

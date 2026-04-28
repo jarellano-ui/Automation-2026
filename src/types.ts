@@ -19,15 +19,13 @@ export interface Handover {
   id: string;
   fromShift: string;
   toShift: string;
-  endorsedBy: string;
-  receivedBy?: string;
+  endorsedBy: string[];
+  endorsedTo: string[];
   timestamp: number;
   taskIds: string[];
-  notes: string;
-  systemStatus: {
-    name: string;
-    status: 'up' | 'down' | 'degraded';
-  }[];
+  title: string;
+  description: string;
+  urgency: 'low' | 'medium' | 'high';
 }
 
 export type View = 'dashboard' | 'tasks' | 'handover' | 'logs';
