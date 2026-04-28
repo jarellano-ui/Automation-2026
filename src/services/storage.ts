@@ -5,66 +5,71 @@
 
 import { Task, Handover } from '../types';
 
-const TASKS_KEY = 'shiftbridge_tasks';
-const HANDOVERS_KEY = 'shiftbridge_handovers';
-
-const SEED_TASKS: Task[] = [
-  {
-    id: '1',
-    title: 'Monitor Server Cluster #4',
-    description: 'Reported high latency in APAC region. Needs continuous monitoring.',
-    priority: 'high',
-    status: 'pending',
-    createdBy: 'Admin',
-    createdAt: Date.now() - 3600000,
-    updatedAt: Date.now() - 3600000,
-  },
-  {
-    id: '2',
-    title: 'Update client documentation',
-    description: 'Ensure all onboarding steps for the new shift are documented.',
-    priority: 'medium',
-    status: 'pending',
-    createdBy: 'System',
-    createdAt: Date.now() - 7200000,
-    updatedAt: Date.now() - 7200000,
-  }
-];
-
 export const storage = {
-  getTasks: (): Task[] => {
-    const data = localStorage.getItem(TASKS_KEY);
-    if (!data) {
-      storage.saveTasks(SEED_TASKS);
-      return SEED_TASKS;
-    }
-    return JSON.parse(data);
-  },
-
-  saveTasks: (tasks: Task[]) => {
-    localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
-  },
-
-  getHandovers: (): Handover[] => {
-    const data = localStorage.getItem(HANDOVERS_KEY);
-    if (!data) return [];
+  getTasks: async (): Promise<Task[]> => {
     try {
-      const handovers: any[] = JSON.parse(data);
-      return handovers.map(h => ({
-        ...h,
-        endorsedBy: Array.isArray(h.endorsedBy) ? h.endorsedBy : (h.endorsedBy ? [h.endorsedBy] : []),
-        endorsedTo: Array.isArray(h.endorsedTo) ? h.endorsedTo : (h.endorsedTo ? [h.endorsedTo] : (h.receivedBy ? [h.receivedBy] : [])),
-        urgency: h.urgency || 'medium',
-        title: h.title || '',
-        description: h.description || h.notes || ''
-      }));
+      const response = await fetch('/api/tasks');
+      if (!response.ok) throw new Error('Failed to fetch tasks');
+      return await response.json();
     } catch (e) {
-      console.error('Failed to parse handovers', e);
+      console.error('Error fetching tasks', e);
       return [];
     }
   },
 
-  saveHandovers: (handovers: Handover[]) => {
-    localStorage.setItem(HANDOVERS_KEY, JSON.stringify(handovers));
+  saveTasks: async (tasks: Task[]): Promise<void> => {
+    try {
+      await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(tasks),
+      });
+    } catch (e) {
+      console.error('Error saving tasks', e);
+    }
+  },
+
+  getHandovers: async (): Promise<Handover[]> => {
+    try {
+      const response = await fetch('/api/handovers');
+      if (!response.ok) throw new Error('Failed to fetch handovers');
+      const data: any[] = await response.json();
+      return data.map(h => ({
+        ...h,
+        endorsedBy: Array.isArray(h.endorsedBy) ? h.endorsedBy : (h.endorsedBy ? [h.endorsedBy] : []),
+        endorsedTo: Array.isArray(h.endorsedTo) ? h.endorsedTo : (h.endorsedTo ? [h.endorsedTo] : []),
+        urgency: h.urgency || 'medium',
+        status: h.status || 'pending',
+        title: h.title || '',
+        description: h.description || h.notes || ''
+      }));
+    } catch (e) {
+      console.error('Error fetching handovers', e);
+      return [];
+    }
+  },
+
+  updateHandovers: async (handovers: Handover[]): Promise<void> => {
+    try {
+      await fetch('/api/handovers', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(handovers),
+      });
+    } catch (e) {
+      console.error('Error updating handovers', e);
+    }
+  },
+
+  saveHandover: async (handover: Handover): Promise<void> => {
+    try {
+      await fetch('/api/handovers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(handover),
+      });
+    } catch (e) {
+      console.error('Error saving handover', e);
+    }
   }
 };

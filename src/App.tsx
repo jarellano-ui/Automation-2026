@@ -16,7 +16,8 @@ import {
   Menu,
   X,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { View, Task, Handover } from './types';
@@ -25,8 +26,9 @@ import { storage } from './services/storage';
 // Views
 import Dashboard from './components/Dashboard';
 import TaskBoard from './components/TaskBoard';
-import HandoverForm from './components/HandoverForm';
+import EndorsementBoard from './components/EndorsementBoard';
 import HandoverLogs from './components/HandoverLogs';
+import ITSchedule from './components/ITSchedule';
 
 import { auth as authService, UserProfile } from './services/auth';
 
@@ -40,13 +42,16 @@ export default function App() {
   const [editUser, setEditUser] = useState<UserProfile>(user);
 
   useEffect(() => {
-    setTasks(storage.getTasks());
-    setHandovers(storage.getHandovers());
+    refreshData();
   }, []);
 
-  const refreshData = () => {
-    setTasks(storage.getTasks());
-    setHandovers(storage.getHandovers());
+  const refreshData = async () => {
+    const [t, h] = await Promise.all([
+      storage.getTasks(),
+      storage.getHandovers()
+    ]);
+    setTasks(t);
+    setHandovers(h);
   };
 
   const saveProfile = (e: React.FormEvent) => {
@@ -59,8 +64,9 @@ export default function App() {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'tasks', label: 'Tasks', icon: ClipboardList },
-    { id: 'handover', label: 'Endorse Shift', icon: ArrowRightLeft },
-    { id: 'logs', label: 'Handover Logs', icon: History },
+    { id: 'handover', label: 'Next Shift Endorsement', icon: ArrowRightLeft },
+    { id: 'schedule', label: 'IT Schedule', icon: Calendar },
+    { id: 'logs', label: 'Activity Logs', icon: History },
   ];
 
   return (
@@ -131,7 +137,10 @@ export default function App() {
             </div>
             {isSidebarOpen && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="overflow-hidden text-left">
-                <p className="font-bold text-sm truncate text-gray-900">{user.name}</p>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <p className="font-bold text-sm truncate text-gray-900">{user.name}</p>
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="Synced with server" />
+                </div>
                 <p className="text-[10px] uppercase font-black tracking-widest text-[#88C13E]">{user.role}</p>
               </motion.div>
             )}
@@ -144,7 +153,7 @@ export default function App() {
         {/* Header */}
         <header className="h-20 bg-white border border-gray-100 rounded-[2rem] px-8 flex items-center justify-between shrink-0 mb-4 shadow-sm">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-[#4A773C] font-black mb-0.5">Official Protocol Matrix</p>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[#4A773C] font-black mb-0.5">Official Endorsement Matrix</p>
             <h2 className="text-xl font-black italic tracking-tight text-gray-900 leading-none">
               {navItems.find(n => n.id === currentView)?.label}
             </h2>
@@ -189,13 +198,17 @@ export default function App() {
                 <TaskBoard tasks={tasks} onUpdate={refreshData} />
               )}
               {currentView === 'handover' && (
-                <HandoverForm tasks={tasks} onComplete={() => {
-                  refreshData();
-                  setCurrentView('logs');
-                }} />
+                <EndorsementBoard 
+                  handovers={handovers} 
+                  tasks={tasks} 
+                  onUpdate={refreshData} 
+                />
+              )}
+              {currentView === 'schedule' && (
+                <ITSchedule />
               )}
               {currentView === 'logs' && (
-                <HandoverLogs handovers={handovers} />
+                <HandoverLogs handovers={handovers} tasks={tasks} onUpdate={refreshData} />
               )}
             </motion.div>
           </AnimatePresence>

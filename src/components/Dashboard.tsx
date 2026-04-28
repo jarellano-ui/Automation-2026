@@ -11,7 +11,8 @@ import {
   AlertCircle,
   TrendingUp,
   Activity,
-  Plus
+  Plus,
+  Users
 } from 'lucide-react';
 import { Task, Handover, View } from '../types';
 
@@ -24,7 +25,18 @@ interface DashboardProps {
 export default function Dashboard({ tasks, handovers, onNavigate }: DashboardProps) {
   const pendingTasks = tasks.filter(t => t.status !== 'completed');
   const urgentTasks = pendingTasks.filter(t => t.priority === 'high');
-  const lastHandover = handovers[handovers.length - 1];
+  const lastHandover = [...handovers].sort((a, b) => b.timestamp - a.timestamp)[0];
+
+  const formatDuration = (ms: number) => {
+    const mins = Math.floor(ms / 60000);
+    const hrs = Math.floor(mins / 60);
+    if (hrs > 0) return `${hrs}h ${mins % 60}m`;
+    return `${mins}m`;
+  };
+
+  const formatTime = (ts: number) => {
+    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
   const stats = [
     { label: 'Active Tasks', value: pendingTasks.length, icon: Clock, color: 'text-[#4A773C]', bg: 'bg-[#4A773C]/10' },
@@ -34,6 +46,20 @@ export default function Dashboard({ tasks, handovers, onNavigate }: DashboardPro
 
   return (
     <div className="space-y-8 pb-8">
+      {/* Quick Access */}
+      <div className="flex flex-wrap gap-4">
+        <button 
+          onClick={() => onNavigate('schedule')}
+          className="hc-card px-6 py-4 flex items-center gap-3 hover:border-[#88C13E]/30 group transition-all"
+        >
+          <div className="p-2 bg-[#F1F7EB] rounded-xl text-[#4A773C]">
+            <Users size={20} />
+          </div>
+          <span className="text-xs font-black uppercase tracking-widest text-gray-600">IT Force Monitor</span>
+          <ArrowRightLeft size={14} className="text-gray-300 group-hover:text-[#4A773C] transition-all ml-2" />
+        </button>
+      </div>
+
       {/* Welcome & Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {stats.map((stat, i) => (
@@ -82,9 +108,25 @@ export default function Dashboard({ tasks, handovers, onNavigate }: DashboardPro
                           <p className="font-black text-[10px] uppercase text-[#88C13E] tracking-widest leading-none">Endorsed To</p>
                           <p className="font-bold text-sm text-gray-900 mt-1">{(lastHandover.endorsedTo || []).join(', ')}</p>
                         </div>
-                        <p className="text-[10px] text-gray-500 font-medium mt-2">
-                          {new Date(lastHandover.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                        <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mt-2">
+                          Created: {new Date(lastHandover.timestamp).toLocaleDateString()} {formatTime(lastHandover.timestamp)}
                         </p>
+                        {(lastHandover.startedAt || lastHandover.completedAt) && (
+                          <div className="flex flex-wrap items-center gap-3 mt-3">
+                            {lastHandover.startedAt && (
+                              <span className="text-[9px] font-black uppercase text-blue-600 tracking-widest bg-blue-50 px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1">
+                                <Clock size={10} />
+                                SLA: {formatDuration((lastHandover.completedAt || Date.now()) - lastHandover.startedAt)}
+                              </span>
+                            )}
+                            {lastHandover.completedAt && (
+                              <span className="text-[9px] font-black uppercase text-emerald-600 tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 flex items-center gap-1">
+                                <CheckCircle2 size={10} />
+                                Done: {formatTime(lastHandover.completedAt)}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2">
@@ -114,7 +156,7 @@ export default function Dashboard({ tasks, handovers, onNavigate }: DashboardPro
               ) : (
                 <div className="p-20 text-center text-gray-400">
                   <ArrowRightLeft size={64} className="mx-auto mb-4 opacity-20" />
-                  <p className="font-bold text-lg text-gray-600">No Handover Protocol Initiated</p>
+                  <p className="font-bold text-lg text-gray-600">No Endorsement Task Initiated</p>
                   <p className="text-sm opacity-60">System stands by for first shift endorsement.</p>
                 </div>
               )}
@@ -168,7 +210,7 @@ export default function Dashboard({ tasks, handovers, onNavigate }: DashboardPro
                 onClick={() => onNavigate('handover')}
                 className="w-full bg-white text-[#4A773C] py-4 rounded-2xl font-black hover:bg-[#88C13E] hover:text-white transition-all flex items-center justify-center gap-3 shadow-xl group-hover:gap-5"
               >
-                START HANDOVER
+                NEXT SHIFT ENDORSEMENT
                 <ArrowRightLeft size={20} />
               </button>
             </div>

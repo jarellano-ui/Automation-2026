@@ -116,7 +116,7 @@ export default function HandoverForm({ tasks, onComplete }: HandoverFormProps) {
 
   const pendingTasks = tasks.filter(t => t.status !== 'completed');
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if ((formData.endorsedBy || []).length === 0 || (formData.endorsedTo || []).length === 0) {
       alert('Please select personnel for both Endorsed By and Endorsed To.');
       return;
@@ -132,11 +132,11 @@ export default function HandoverForm({ tasks, onComplete }: HandoverFormProps) {
       endorsedTo: formData.endorsedTo,
       title: formData.title || 'Untitled Endorsement',
       description: formData.description || 'No description provided',
-      urgency: formData.urgency
+      urgency: formData.urgency,
+      status: 'pending'
     };
 
-    const currentHandovers = storage.getHandovers();
-    storage.saveHandovers([...currentHandovers, newHandover]);
+    await storage.saveHandover(newHandover);
     onComplete();
   };
 
@@ -241,7 +241,7 @@ export default function HandoverForm({ tasks, onComplete }: HandoverFormProps) {
               >
                 <div className="space-y-3">
                   <h3 className="text-3xl font-black tracking-tight italic text-gray-900">Endorsement Urgency</h3>
-                  <p className="text-gray-500 font-medium">Define the criticality level of this handover package.</p>
+                  <p className="text-gray-500 font-medium">Define the criticality level of this endorsement package.</p>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
@@ -304,7 +304,7 @@ export default function HandoverForm({ tasks, onComplete }: HandoverFormProps) {
                     <textarea 
                       value={formData.description}
                       onChange={e => setFormData({...formData, description: e.target.value})}
-                      placeholder="Provide shift turnover notes and pending actions for next support team...."
+                      placeholder="Provide shift endorsement notes and pending actions for next support team...."
                       className="w-full p-8 bg-gray-50 border border-gray-100 rounded-[2rem] outline-none focus:ring-2 focus:ring-[#88C13E] font-bold min-h-[160px] text-lg text-gray-800 transition-all shadow-inner placeholder:text-gray-300"
                     />
                   </div>
@@ -348,7 +348,7 @@ export default function HandoverForm({ tasks, onComplete }: HandoverFormProps) {
               onClick={handleSubmit}
               className="px-12 py-4 bg-[#4A773C] text-white rounded-2xl font-black uppercase tracking-widest flex items-center gap-3 hover:bg-[#88C13E] transition-all shadow-xl shadow-[#4A773C]/20 group"
             >
-              FINALIZE HANDOVER
+              FINALIZE ENDORSEMENT
               <ArrowRightLeft size={20} className="group-hover:rotate-180 transition-transform duration-500" />
             </button>
           )}

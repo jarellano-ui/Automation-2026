@@ -8,11 +8,13 @@ export interface Task {
   title: string;
   description: string;
   priority: 'low' | 'medium' | 'high';
-  status: 'pending' | 'in-progress' | 'completed';
+  status: 'pending' | 'on-going' | 'completed';
   createdBy: string;
-  assignedTo?: string;
+  assignedTo?: string[];
   createdAt: number;
   updatedAt: number;
+  startedAt?: number;
+  completedAt?: number;
 }
 
 export interface Handover {
@@ -26,6 +28,9 @@ export interface Handover {
   title: string;
   description: string;
   urgency: 'low' | 'medium' | 'high';
+  status: 'pending' | 'on-going' | 'completed';
+  startedAt?: number;
+  completedAt?: number;
 }
 
-export type View = 'dashboard' | 'tasks' | 'handover' | 'logs';
+export type View = 'dashboard' | 'tasks' | 'handover' | 'logs' | 'schedule';
