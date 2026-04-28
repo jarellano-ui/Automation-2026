@@ -271,7 +271,7 @@ export default function ITSchedule() {
             <Calendar size={32} />
           </div>
           <div>
-            <h3 className="text-2xl font-black italic tracking-tight text-gray-900">IT Force Schedule</h3>
+            <h3 className="text-2xl font-black italic tracking-tight text-gray-900">IT Team Schedule</h3>
             <div className="flex items-center gap-3 mt-1">
               <span className="text-[10px] font-black uppercase tracking-widest text-[#4A773C] bg-[#4A773C]/10 px-3 py-1 rounded-full border border-[#4A773C]/20">
                 {currentMonthName} Matrix

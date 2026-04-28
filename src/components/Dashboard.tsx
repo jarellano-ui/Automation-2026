@@ -15,14 +15,38 @@ import {
   Users
 } from 'lucide-react';
 import { Task, Handover, View } from '../types';
+import { storage } from '../services/storage';
 
 interface DashboardProps {
   tasks: Task[];
   handovers: Handover[];
   onNavigate: (view: View) => void;
+  onUpdate: () => void;
 }
 
-export default function Dashboard({ tasks, handovers, onNavigate }: DashboardProps) {
+export default function Dashboard({ tasks, handovers, onNavigate, onUpdate }: DashboardProps) {
+  const [quickTask, setQuickTask] = React.useState('');
+
+  const handleQuickTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickTask.trim()) return;
+
+    const task: Task = {
+      id: Math.random().toString(36).substr(2, 9),
+      title: quickTask,
+      description: 'Quick entry from dashboard matrix.',
+      priority: 'medium',
+      status: 'pending',
+      createdBy: 'John Arellano',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    await storage.saveTasks([task, ...tasks]);
+    setQuickTask('');
+    onUpdate();
+  };
+
   const pendingTasks = tasks.filter(t => t.status !== 'completed');
   const urgentTasks = pendingTasks.filter(t => t.priority === 'high');
   const lastHandover = [...handovers].sort((a, b) => b.timestamp - a.timestamp)[0];
@@ -55,7 +79,7 @@ export default function Dashboard({ tasks, handovers, onNavigate }: DashboardPro
           <div className="p-2 bg-[#F1F7EB] rounded-xl text-[#4A773C]">
             <Users size={20} />
           </div>
-          <span className="text-xs font-black uppercase tracking-widest text-gray-600">IT Force Monitor</span>
+          <span className="text-xs font-black uppercase tracking-widest text-gray-600">IT Team Monitor</span>
           <ArrowRightLeft size={14} className="text-gray-300 group-hover:text-[#4A773C] transition-all ml-2" />
         </button>
       </div>
@@ -224,19 +248,21 @@ export default function Dashboard({ tasks, handovers, onNavigate }: DashboardPro
               <Plus size={18} className="text-[#88C13E]" />
               Direct Entry
             </h4>
-            <div className="space-y-4">
+            <form onSubmit={handleQuickTask} className="space-y-4">
               <input 
                 type="text" 
+                value={quickTask}
+                onChange={e => setQuickTask(e.target.value)}
                 placeholder="Log urgent requirement..."
                 className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm text-gray-800 focus:bg-white focus:ring-2 focus:ring-[#88C13E] outline-none transition-all placeholder:text-gray-400"
               />
               <button 
-                onClick={() => onNavigate('tasks')}
+                type="submit"
                 className="w-full text-[10px] text-gray-400 hover:text-[#4A773C] font-black uppercase tracking-widest transition-colors text-center"
               >
                 Access Full Task Matrix →
               </button>
-            </div>
+            </form>
           </div>
         </div>
       </div>

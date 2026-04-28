@@ -192,7 +192,7 @@ export default function App() {
               className="max-w-6xl mx-auto h-full"
             >
               {currentView === 'dashboard' && (
-                <Dashboard tasks={tasks} handovers={handovers} onNavigate={setCurrentView} />
+                <Dashboard tasks={tasks} handovers={handovers} onNavigate={setCurrentView} onUpdate={refreshData} />
               )}
               {currentView === 'tasks' && (
                 <TaskBoard tasks={tasks} onUpdate={refreshData} />
