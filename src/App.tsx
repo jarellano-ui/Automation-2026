@@ -88,10 +88,10 @@ export default function App() {
                 <div className="w-6 h-6 bg-[#88C13E] rounded-full flex items-center justify-center shrink-0">
                   <div className="w-3 h-3 border-2 border-white rounded-full"></div>
                 </div>
-                <span className="font-black text-xs uppercase tracking-[0.1em] text-gray-400">Hello Connect</span>
+                <span className="font-black text-xs uppercase tracking-[0.1em] text-gray-400">HelloConnect</span>
               </div>
               <h1 className="font-extrabold text-sm tracking-tight text-[#4A773C] leading-none mt-1">
-                HCIT ENDORSEMENT
+                HCIT ENDORSEMENT MATRIX
               </h1>
             </motion.div>
           )}
