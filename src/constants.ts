@@ -5,6 +5,6 @@ export const IT_TEAM = [
   'Aian Paulo De Guzman',
   'Ron Amil Villa',
   'Rex Mayordo',
-  'Joy Perez',
+  'Kellie Joyce Anne Perez',
   'Kristel Mae Davelles'
 ];

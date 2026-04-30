@@ -40,7 +40,7 @@ const INITIAL_DATA: StaffSchedule[] = [
   { name: 'Errol', monthlySchedule: {} },
   { name: 'Ron', monthlySchedule: {} },
   { name: 'Paulo', monthlySchedule: {} },
-  { name: 'Joyce', monthlySchedule: {} },
+  { name: 'Kellie Joyce Anne Perez', monthlySchedule: {} },
   { name: 'Rex', monthlySchedule: {} },
   { name: 'Kristel', monthlySchedule: {} },
   { name: 'Kiel', monthlySchedule: {} },
