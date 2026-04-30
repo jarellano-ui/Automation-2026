@@ -20,10 +20,12 @@ import {
   XCircle,
   Filter
 } from 'lucide-react';
-import { Handover, Task } from '../types';
+import { Handover, Task, Comment } from '../types';
 import { storage } from '../services/storage';
 import { auth as authService } from '../services/auth';
+import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
+import CommentSection from './CommentSection';
 
 interface HandoverLogsProps {
   handovers: Handover[];
@@ -38,6 +40,60 @@ export default function HandoverLogs({ handovers, tasks, onUpdate }: HandoverLog
   const [typeFilter, setTypeFilter] = useState<'all' | 'protocol' | 'task'>('all');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week'>('all');
 
+  const { user: sessionUser } = useAuth();
+  const localUser = authService.getUser();
+  const currentUserName = sessionUser?.name || localUser.name;
+
+  const handleAddComment = async (originalId: string, type: 'protocol' | 'task', text: string) => {
+    const now = Date.now();
+    const newComment: Comment = {
+      id: Math.random().toString(36).substring(2, 9),
+      text,
+      author: currentUserName,
+      timestamp: now
+    };
+
+    if (type === 'protocol') {
+      const updated = handovers.map(h => {
+        if (h.id === originalId) {
+          return { ...h, comments: [...(h.comments || []), newComment] };
+        }
+        return h;
+      });
+      await storage.updateHandovers(updated);
+    } else {
+      const updated = tasks.map(t => {
+        if (t.id === originalId) {
+          return { ...t, comments: [...(t.comments || []), newComment] };
+        }
+        return t;
+      });
+      await storage.saveTasks(updated);
+    }
+    onUpdate();
+  };
+
+  const handleDeleteComment = async (originalId: string, type: 'protocol' | 'task', commentId: string) => {
+    if (type === 'protocol') {
+      const updated = handovers.map(h => {
+        if (h.id === originalId) {
+          return { ...h, comments: (h.comments || []).filter(c => c.id !== commentId) };
+        }
+        return h;
+      });
+      await storage.updateHandovers(updated);
+    } else {
+      const updated = tasks.map(t => {
+        if (t.id === originalId) {
+          return { ...t, comments: (t.comments || []).filter(c => c.id !== commentId) };
+        }
+        return t;
+      });
+      await storage.saveTasks(updated);
+    }
+    onUpdate();
+  };
+
   // Unified Log Item type
   type LogItem = {
     id: string;
@@ -49,6 +105,7 @@ export default function HandoverLogs({ handovers, tasks, onUpdate }: HandoverLog
     status: 'pending' | 'on-going' | 'completed';
     startedAt?: number;
     completedAt?: number;
+    comments?: Comment[];
     meta: any;
   };
 
@@ -63,6 +120,7 @@ export default function HandoverLogs({ handovers, tasks, onUpdate }: HandoverLog
       status: h.status,
       startedAt: h.startedAt,
       completedAt: h.completedAt,
+      comments: h.comments,
       meta: { originalId: h.id, fromShift: h.fromShift, toShift: h.toShift, endorsedBy: h.endorsedBy, endorsedTo: h.endorsedTo, taskIds: h.taskIds }
     })),
     ...tasks.map(t => ({
@@ -75,6 +133,7 @@ export default function HandoverLogs({ handovers, tasks, onUpdate }: HandoverLog
       status: t.status,
       startedAt: t.startedAt,
       completedAt: t.completedAt,
+      comments: t.comments,
       meta: { originalId: t.id, createdBy: t.createdBy, assignedTo: t.assignedTo }
     }))
   ];
@@ -301,8 +360,8 @@ export default function HandoverLogs({ handovers, tasks, onUpdate }: HandoverLog
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {sortedLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-gray-50/50 transition-colors">
+                  {sortedLogs.map((log, idx) => (
+                    <tr key={`${log.id}-${idx}`} className="hover:bg-gray-50/50 transition-colors">
                       <td className="px-6 py-4 text-xs font-bold text-gray-500 whitespace-nowrap">
                         {new Date(log.timestamp).toLocaleDateString()}
                       </td>
@@ -371,9 +430,9 @@ export default function HandoverLogs({ handovers, tasks, onUpdate }: HandoverLog
               </table>
             </div>
           ) : (
-            sortedLogs.map((log) => (
+            sortedLogs.map((log, idx) => (
             <div 
-              key={log.id}
+              key={`${log.id}-${idx}`}
               className={`hc-card overflow-hidden transition-all hover:bg-white hover:shadow-md group ${
                 log.type === 'task' ? 'border-l-4 border-l-blue-400' : 'border-l-4 border-l-[#88C13E]'
               }`}
@@ -443,8 +502,8 @@ export default function HandoverLogs({ handovers, tasks, onUpdate }: HandoverLog
                             <div className="flex flex-col gap-1">
                               <p className="text-[8px] font-black uppercase text-[#88C13E] tracking-widest leading-none">Assigned To</p>
                               <div className="flex flex-wrap items-center gap-2">
-                                {(Array.isArray(log.meta.assignedTo) ? log.meta.assignedTo : [log.meta.assignedTo]).map(assigned => (
-                                  <div key={assigned} className="flex items-center gap-2 bg-[#88C13E]/5 px-1.5 py-0.5 rounded border border-[#88C13E]/10">
+                                {(Array.isArray(log.meta.assignedTo) ? log.meta.assignedTo : [log.meta.assignedTo]).map((assigned, idx) => (
+                                  <div key={`${assigned}-${idx}`} className="flex items-center gap-2 bg-[#88C13E]/5 px-1.5 py-0.5 rounded border border-[#88C13E]/10">
                                     <div className="w-4 h-4 rounded-full bg-[#88C13E]/10 flex items-center justify-center text-[7px] font-black text-[#88C13E]">
                                       {authService.getInitials(assigned)}
                                     </div>
@@ -553,6 +612,14 @@ export default function HandoverLogs({ handovers, tasks, onUpdate }: HandoverLog
                             {log.description || 'No additional notes provided for this record.'}
                           </p>
                         </div>
+                      </div>
+
+                      <div className="pt-6 border-t border-gray-100">
+                        <CommentSection 
+                          comments={log.comments || []} 
+                          onAddComment={(text) => handleAddComment(log.meta.originalId, log.type, text)} 
+                          onDeleteComment={(commentId) => handleDeleteComment(log.meta.originalId, log.type, commentId)}
+                        />
                       </div>
 
                       <div className="flex items-center justify-between text-[10px] text-gray-400 font-black uppercase tracking-[0.3em] pt-6 border-t border-gray-100">

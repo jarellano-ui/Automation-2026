@@ -3,6 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+export interface Comment {
+  id: string;
+  text: string;
+  author: string;
+  timestamp: number;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -15,6 +22,7 @@ export interface Task {
   updatedAt: number;
   startedAt?: number;
   completedAt?: number;
+  comments?: Comment[];
 }
 
 export interface Handover {
@@ -31,6 +39,18 @@ export interface Handover {
   status: 'pending' | 'on-going' | 'completed';
   startedAt?: number;
   completedAt?: number;
+  comments?: Comment[];
 }
 
-export type View = 'dashboard' | 'tasks' | 'handover' | 'logs' | 'schedule';
+export type View = 'dashboard' | 'tasks' | 'handover' | 'logs' | 'schedule' | 'users';
+
+export interface Notification {
+  id: string;
+  type: 'task' | 'handover';
+  title: string;
+  message: string;
+  timestamp: number;
+  readBy: string[]; // List of user IDs who opened the notification
+  assignedToUserIds: string[]; // List of user IDs specifically mentioned/assigned
+  linkView: View;
+}

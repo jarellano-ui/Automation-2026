@@ -15,13 +15,17 @@ import {
   Clock,
   AlertTriangle,
   ChevronDown,
-  ClipboardList
+  ClipboardList,
+  MessageSquare,
+  User
 } from 'lucide-react';
-import { Task } from '../types';
+import { Task, Comment } from '../types';
 import { storage } from '../services/storage';
 import { auth as authService } from '../services/auth';
+import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { IT_TEAM } from '../constants';
+import CommentSection from './CommentSection';
 
 interface TaskBoardProps {
   tasks: Task[];
@@ -31,26 +35,64 @@ interface TaskBoardProps {
 export default function TaskBoard({ tasks, onUpdate }: TaskBoardProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'on-going' | 'completed'>('all');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [newTask, setNewTask] = useState({ 
     title: '', 
     description: '', 
     priority: 'medium' as Task['priority'],
     assignedTo: [] as string[] 
   });
-  const user = authService.getUser();
+  
+  const { user: sessionUser } = useAuth();
+  const localUser = authService.getUser();
+  const currentUserName = sessionUser?.name || localUser.name;
+
+  const handleAddComment = async (taskId: string, text: string) => {
+    const updated = tasks.map(t => {
+      if (t.id === taskId) {
+        const newComment: Comment = {
+          id: Math.random().toString(36).substring(2, 9),
+          text,
+          author: currentUserName,
+          timestamp: Date.now()
+        };
+        return {
+          ...t,
+          comments: [...(t.comments || []), newComment]
+        };
+      }
+      return t;
+    });
+    await storage.saveTasks(updated);
+    onUpdate();
+  };
+
+  const handleDeleteComment = async (taskId: string, commentId: string) => {
+    const updated = tasks.map(t => {
+      if (t.id === taskId) {
+        return {
+          ...t,
+          comments: (t.comments || []).filter(c => c.id !== commentId)
+        };
+      }
+      return t;
+    });
+    await storage.saveTasks(updated);
+    onUpdate();
+  };
 
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTask.title) return;
 
     const task: Task = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.random().toString(36).substr(2, 9) + Date.now().toString(36),
       title: newTask.title,
       description: newTask.description,
       priority: newTask.priority,
       assignedTo: newTask.assignedTo.length > 0 ? newTask.assignedTo : undefined,
       status: 'pending',
-      createdBy: user.name,
+      createdBy: currentUserName,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -240,18 +282,29 @@ export default function TaskBoard({ tasks, onUpdate }: TaskBoardProps) {
             </motion.div>
           )}
 
-          {filteredTasks.length > 0 ? (
-            filteredTasks.map((task) => (
-              <motion.div
-                layout
-                key={task.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className={`group hc-card p-6 transition-all flex items-start gap-6 hover:shadow-md hover:border-[#88C13E]/30 ${
-                  task.status === 'completed' ? 'opacity-50' : ''
-                }`}
-              >
+            {filteredTasks.length > 0 ? (
+            filteredTasks.map((task) => {
+              const isAssignedToMe = task.assignedTo && (
+                Array.isArray(task.assignedTo) 
+                  ? task.assignedTo.includes(currentUserName) 
+                  : task.assignedTo === currentUserName
+              );
+
+              return (
+                <motion.div
+                  layout
+                  key={task.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className={`group hc-card p-6 transition-all flex items-start gap-6 hover:shadow-md ${
+                    isAssignedToMe 
+                      ? 'bg-[#4A773C]/5 border-[#4A773C]/30 shadow-sm ring-1 ring-[#4A773C]/10' 
+                      : 'hover:border-[#88C13E]/30'
+                  } ${
+                    task.status === 'completed' ? 'opacity-50' : ''
+                  }`}
+                >
                 <div className="flex flex-col gap-1 items-center">
                   <button 
                     onClick={() => toggleTaskStatus(task.id)}
@@ -280,7 +333,10 @@ export default function TaskBoard({ tasks, onUpdate }: TaskBoardProps) {
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-4">
+                  <div 
+                    className="flex items-start justify-between gap-4 cursor-pointer"
+                    onClick={() => setExpandedId(expandedId === task.id ? null : task.id)}
+                  >
                     <h4 className={`font-bold text-xl leading-tight transition-all truncate tracking-tight text-gray-900 ${
                       task.status === 'completed' ? 'line-through text-gray-400' : ''
                     }`}>
@@ -301,9 +357,20 @@ export default function TaskBoard({ tasks, onUpdate }: TaskBoardProps) {
                       }`}>
                         {task.priority}
                       </span>
+                      {isAssignedToMe && (
+                        <div className="flex items-center gap-1.5 px-3 py-1 bg-[#4A773C] text-white rounded-lg shadow-sm">
+                          <User size={10} className="fill-current" />
+                          <span className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">Assigned to You</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <p className="text-sm text-gray-500 mt-2 leading-relaxed italic line-clamp-2">"{task.description}"</p>
+                  <p 
+                    className="text-sm text-gray-500 mt-2 leading-relaxed italic line-clamp-2 cursor-pointer"
+                    onClick={() => setExpandedId(expandedId === task.id ? null : task.id)}
+                  >
+                    "{task.description}"
+                  </p>
                   
                   <div className="flex flex-wrap items-center gap-x-8 gap-y-3 mt-6 pt-5 border-t border-gray-50">
                     <div className="flex flex-col gap-1">
@@ -320,8 +387,8 @@ export default function TaskBoard({ tasks, onUpdate }: TaskBoardProps) {
                       <div className="flex flex-col gap-1">
                         <p className="text-[8px] font-black uppercase text-[#88C13E] tracking-widest leading-none mb-1">Assigned To</p>
                         <div className="flex flex-wrap items-center gap-3">
-                          {(Array.isArray(task.assignedTo) ? task.assignedTo : [task.assignedTo]).map(assigned => (
-                            <div key={assigned} className="flex items-center gap-2 bg-[#88C13E]/5 px-2 py-1 rounded-lg border border-[#88C13E]/10">
+                          {(Array.isArray(task.assignedTo) ? task.assignedTo : [task.assignedTo]).map((assigned, idx) => (
+                            <div key={`${assigned}-${idx}`} className="flex items-center gap-2 bg-[#88C13E]/5 px-2 py-1 rounded-lg border border-[#88C13E]/10">
                               <div className="w-5 h-5 rounded-full bg-[#88C13E]/10 flex items-center justify-center text-[8px] font-black text-[#88C13E]">
                                 {authService.getInitials(assigned)}
                               </div>
@@ -339,24 +406,46 @@ export default function TaskBoard({ tasks, onUpdate }: TaskBoardProps) {
                        </span>
                     </div>
 
-                    {task.startedAt && (
-                      <div className="flex items-center gap-2">
-                         <div className="w-1 h-1 rounded-full bg-blue-300"></div>
-                         <span className="text-[10px] text-blue-600 font-black uppercase tracking-widest">
-                           SLA: {formatDuration((task.completedAt || Date.now()) - task.startedAt)}
-                         </span>
+                    <div className="flex items-center gap-2 ml-auto">
+                      <div className="flex items-center gap-1.5 text-gray-400 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                        <MessageSquare size={12} />
+                        <span className="text-[10px] font-bold">{task.comments?.length || 0}</span>
                       </div>
-                    )}
-
-                    {task.completedAt && (
-                      <div className="flex items-center gap-2">
-                         <div className="w-1 h-1 rounded-full bg-emerald-300"></div>
-                         <span className="text-[10px] text-emerald-600 font-black uppercase tracking-widest">
-                           Done: {formatTime(task.completedAt)}
-                         </span>
-                      </div>
-                    )}
+                      <button 
+                        onClick={() => setExpandedId(expandedId === task.id ? null : task.id)}
+                        className={`p-2 rounded-full transition-all ${expandedId === task.id ? 'bg-[#4A773C] text-white shadow-lg shadow-[#4A773C]/20' : 'text-gray-300'}`}
+                      >
+                        <ChevronDown size={20} className={`transform transition-transform ${expandedId === task.id ? 'rotate-180' : ''}`} />
+                      </button>
+                    </div>
                   </div>
+
+                  <AnimatePresence>
+                    {expandedId === task.id && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-8 pt-8 border-t border-gray-100 space-y-8">
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-4">Detailed Requirements</p>
+                            <div className="bg-gray-50 p-6 rounded-2xl italic text-gray-600 text-sm leading-relaxed border border-gray-100">
+                              "{task.description}"
+                            </div>
+                          </div>
+                          
+                          <CommentSection 
+                            comments={task.comments || []} 
+                            onAddComment={(text) => handleAddComment(task.id, text)}
+                            onDeleteComment={(commentId) => handleDeleteComment(task.id, commentId)}
+                            title="Task Updates"
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -368,7 +457,8 @@ export default function TaskBoard({ tasks, onUpdate }: TaskBoardProps) {
                   </button>
                 </div>
               </motion.div>
-            ))
+            );
+          })
           ) : (
             <div className="py-32 text-center text-gray-400">
               <ClipboardList size={80} className="mx-auto mb-6 opacity-20" />

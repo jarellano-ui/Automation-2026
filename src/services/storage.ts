@@ -71,5 +71,28 @@ export const storage = {
     } catch (e) {
       console.error('Error saving handover', e);
     }
+  },
+
+  getNotifications: async (): Promise<any[]> => {
+    try {
+      const response = await fetch('/api/notifications');
+      if (!response.ok) throw new Error('Failed to fetch notifications');
+      return await response.json();
+    } catch (e) {
+      console.error('Error fetching notifications', e);
+      return [];
+    }
+  },
+
+  markNotificationRead: async (notificationId: string | 'all'): Promise<void> => {
+    try {
+      await fetch('/api/notifications/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationId }),
+      });
+    } catch (e) {
+      console.error('Error marking notification as read', e);
+    }
   }
 };

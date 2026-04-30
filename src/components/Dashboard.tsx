@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Task, Handover, View } from '../types';
 import { storage } from '../services/storage';
+import { useAuth } from '../contexts/AuthContext';
 
 interface DashboardProps {
   tasks: Task[];
@@ -25,6 +26,7 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ tasks, handovers, onNavigate, onUpdate }: DashboardProps) {
+  const { user: sessionUser } = useAuth();
   const [quickTask, setQuickTask] = React.useState('');
 
   const handleQuickTask = async (e: React.FormEvent) => {
@@ -37,7 +39,7 @@ export default function Dashboard({ tasks, handovers, onNavigate, onUpdate }: Da
       description: 'Quick entry from dashboard matrix.',
       priority: 'medium',
       status: 'pending',
-      createdBy: 'John Arellano',
+      createdBy: sessionUser?.name || 'John Arellano',
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };

@@ -19,6 +19,7 @@ import {
 import { Task, Handover } from '../types';
 import { storage } from '../services/storage';
 import { auth as authService } from '../services/auth';
+import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { IT_TEAM } from '../constants';
 
@@ -102,12 +103,15 @@ const MultiSelect = ({
 };
 
 export default function HandoverForm({ tasks, onComplete }: HandoverFormProps) {
-  const user = authService.getUser();
+  const { user: sessionUser } = useAuth();
+  const localUser = authService.getUser();
+  const currentUserName = sessionUser?.name || localUser.name;
+  
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     fromShift: 'Day',
     toShift: 'Night',
-    endorsedBy: [user.name] as string[],
+    endorsedBy: [currentUserName] as string[],
     endorsedTo: [] as string[],
     title: '',
     description: '',

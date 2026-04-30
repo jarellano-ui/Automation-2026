@@ -335,19 +335,19 @@ export default function ITSchedule() {
               <tr className="bg-gray-50/50 border-b border-gray-100">
                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400">Personnel</th>
                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400">Live Status</th>
-                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400">Time Span</th>
+                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400">Time Schedule</th>
                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400">Monthly Matrix</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {filteredStaff.map((staff) => {
+              {filteredStaff.map((staff, idx) => {
                 const status = getStaffStatus(staff);
                 const isoToday = getDateISO(currentTime.getFullYear(), currentTime.getMonth(), currentTime.getDate());
                 const currentShift = staff.monthlySchedule[isoToday];
 
                 return (
                    <motion.tr 
-                    key={staff.name}
+                    key={`${staff.name}-${idx}`}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     className={`group transition-all hover:bg-[#F1F7EB]/30 ${status === 'Offline' || status === 'Restday' || status === 'PTO' ? 'opacity-40 grayscale-[0.9]' : ''}`}

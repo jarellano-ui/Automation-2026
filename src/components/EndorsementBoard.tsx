@@ -12,10 +12,13 @@ import {
   Clock,
   ChevronUp
 } from 'lucide-react';
-import { Handover, Task } from '../types';
+import { Handover, Task, Comment } from '../types';
 import { storage } from '../services/storage';
 import { motion, AnimatePresence } from 'motion/react';
 import HandoverForm from './HandoverForm';
+import CommentSection from './CommentSection';
+import { useAuth } from '../contexts/AuthContext';
+import { auth as authService } from '../services/auth';
 
 interface EndorsementBoardProps {
   handovers: Handover[];
@@ -27,6 +30,43 @@ export default function EndorsementBoard({ handovers, tasks, onUpdate }: Endorse
   const [isAdding, setIsAdding] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'on-going' | 'completed'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const { user: sessionUser } = useAuth();
+  const localUser = authService.getUser();
+  const currentUserName = sessionUser?.name || localUser.name;
+
+  const handleAddComment = async (handoverId: string, text: string) => {
+    const updated = handovers.map(h => {
+      if (h.id === handoverId) {
+        const newComment: Comment = {
+          id: Math.random().toString(36).substring(2, 9),
+          text,
+          author: currentUserName,
+          timestamp: Date.now()
+        };
+        return {
+          ...h,
+          comments: [...(h.comments || []), newComment]
+        };
+      }
+      return h;
+    });
+    await storage.updateHandovers(updated);
+    onUpdate();
+  };
+
+  const handleDeleteComment = async (handoverId: string, commentId: string) => {
+    const updated = handovers.map(h => {
+      if (h.id === handoverId) {
+        return {
+          ...h,
+          comments: (h.comments || []).filter(c => c.id !== commentId)
+        };
+      }
+      return h;
+    });
+    await storage.updateHandovers(updated);
+    onUpdate();
+  };
 
   const toggleHandoverStatus = async (id: string, targetStatus?: Handover['status']) => {
     const updated = handovers.map(h => {
@@ -124,10 +164,10 @@ export default function EndorsementBoard({ handovers, tasks, onUpdate }: Endorse
       <div className="grid grid-cols-1 gap-4">
         <AnimatePresence mode="popLayout">
           {filteredHandovers.length > 0 ? (
-            filteredHandovers.map((log) => (
+            filteredHandovers.map((log, idx) => (
               <motion.div 
                 layout
-                key={log.id}
+                key={`${log.id}-${idx}`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
@@ -265,6 +305,14 @@ export default function EndorsementBoard({ handovers, tasks, onUpdate }: Endorse
                               {log.description || 'No additional notes provided for this record.'}
                             </p>
                           </div>
+                        </div>
+
+                        <div className="pt-6 border-t border-gray-100">
+                          <CommentSection 
+                            comments={log.comments || []} 
+                            onAddComment={(text) => handleAddComment(log.id, text)} 
+                            onDeleteComment={(commentId) => handleDeleteComment(log.id, commentId)}
+                          />
                         </div>
 
                         <div className="flex items-center justify-between text-[10px] text-gray-400 font-black uppercase tracking-[0.3em] pt-6 border-t border-gray-100">

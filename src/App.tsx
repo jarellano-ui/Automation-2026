@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, 
   ClipboardList, 
@@ -17,48 +17,158 @@ import {
   X,
   LogOut,
   ChevronRight,
-  Calendar
+  Calendar,
+  Users,
+  Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { View, Task, Handover } from './types';
+import { View, Task, Handover, Notification } from './types';
 import { storage } from './services/storage';
 
-// Views
+// Components
 import Dashboard from './components/Dashboard';
 import TaskBoard from './components/TaskBoard';
 import EndorsementBoard from './components/EndorsementBoard';
 import HandoverLogs from './components/HandoverLogs';
 import ITSchedule from './components/ITSchedule';
+import LoginPage from './components/LoginPage';
+import UserManagement from './components/UserManagement';
+import NotificationDropdown from './components/NotificationDropdown';
 
 import { auth as authService, UserProfile } from './services/auth';
+import { useAuth } from './contexts/AuthContext';
 
 export default function App() {
+  const { user: sessionUser, loading, logout, refreshUser } = useAuth();
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [handovers, setHandovers] = useState<Handover[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [user, setUser] = useState<UserProfile>(authService.getUser());
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [editUser, setEditUser] = useState<UserProfile>(user);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [editUser, setEditUser] = useState<UserProfile>({ name: '', role: '', email: '', position: '' });
+  const notificationRef = useRef<HTMLDivElement>(null);
+
+  // Fallback profile from local storage if needed
+  const [localStorageUser, setLocalStorageUser] = useState<UserProfile>(authService.getUser());
+
+  const user: UserProfile = {
+    name: sessionUser?.name || localStorageUser.name || '',
+    email: sessionUser?.email || localStorageUser.email || '',
+    role: sessionUser?.role || localStorageUser.role || 'USER',
+    position: sessionUser?.position || localStorageUser.position || (sessionUser?.role === 'ADMIN' ? 'IT Administrator' : 'IT Personnel')
+  };
+
+  useEffect(() => {
+    if (sessionUser) {
+      // Sync local storage with current login
+      const syncedUser = {
+        name: sessionUser.name,
+        email: sessionUser.email,
+        role: sessionUser.role || 'HCIT OFFICER',
+        position: sessionUser.position || (sessionUser.role === 'ADMIN' ? 'IT Administrator' : 'IT Personnel')
+      };
+      authService.setUser(syncedUser);
+      setLocalStorageUser(syncedUser);
+    }
+  }, [sessionUser]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setIsNotificationsOpen(false);
+      }
+    };
+
+    if (isNotificationsOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isNotificationsOpen]);
 
   useEffect(() => {
     refreshData();
+    
+    // Polling for notifications every 30 seconds
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
+  const fetchNotifications = async () => {
+    const notifs = await storage.getNotifications();
+    setNotifications(notifs);
+  };
+
   const refreshData = async () => {
-    const [t, h] = await Promise.all([
+    setLocalStorageUser(authService.getUser());
+    const [t, h, n] = await Promise.all([
       storage.getTasks(),
-      storage.getHandovers()
+      storage.getHandovers(),
+      storage.getNotifications()
     ]);
     setTasks(t);
     setHandovers(h);
+    setNotifications(n);
   };
 
-  const saveProfile = (e: React.FormEvent) => {
+  const handleMarkNotificationRead = async (id: string | 'all') => {
+    await storage.markNotificationRead(id);
+    fetchNotifications();
+  };
+
+  const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    authService.setUser(editUser);
-    setUser(editUser);
+    try {
+      // Attempt to save to server using generic update route
+      // We need the user ID. Since sessionUser represents the session, we use its id.
+      const userId = (sessionUser as any)?.id;
+      if (!userId) {
+        console.error('User ID not found for profile update');
+        return;
+      }
+
+      const res = await fetch(`/api/users/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editUser.name,
+          email: editUser.email,
+          position: editUser.position,
+          password: editUser.password // Include password if set
+        })
+      });
+      
+      if (res.ok) {
+        const updatedUser = await res.json();
+        // Update local state with what the server returned (which includes session update)
+        setLocalStorageUser({
+          name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          position: updatedUser.position
+        });
+        authService.setUser({
+          name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          position: updatedUser.position
+        });
+        
+        // CRITICAL: Refresh the AuthContext user to reflect changes globally
+        await refreshUser();
+      }
+    } catch (err) {
+      console.error('Failed to save profile to server:', err);
+    }
+
     setIsProfileModalOpen(false);
+    refreshData();
   };
 
   const navItems = [
@@ -68,6 +178,25 @@ export default function App() {
     { id: 'schedule', label: 'IT Schedule', icon: Calendar },
     { id: 'logs', label: 'Activity Logs', icon: History },
   ];
+
+  if (sessionUser?.role === 'ADMIN') {
+    navItems.push({ id: 'users', label: 'Accounts', icon: Users });
+  }
+
+  if (loading) {
+    return (
+      <div className="h-screen bg-[#F9FAF8] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-[#88C13E] border-t-transparent rounded-full animate-spin" />
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#4A773C]">Loading System...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!sessionUser) {
+    return <LoginPage onLoginSuccess={refreshData} />;
+  }
 
   return (
     <div className="flex h-screen bg-[#F9FAF8] font-sans text-gray-900 overflow-hidden relative">
@@ -132,16 +261,22 @@ export default function App() {
             }}
             className={`w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-2xl transition-all ${isSidebarOpen ? '' : 'justify-center'}`}
           >
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#4A773C] to-[#88C13E] border-2 border-white shadow-sm shrink-0 flex items-center justify-center text-white font-black text-xs">
-              {authService.getInitials(user.name)}
+            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#4A773C] to-[#88C13E] border-2 border-white shadow-sm shrink-0 flex items-center justify-center text-white font-black text-xs overflow-hidden">
+              {sessionUser?.picture ? (
+                <img src={sessionUser.picture} alt="profile" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+              ) : (
+                authService.getInitials(user.name)
+              )}
             </div>
             {isSidebarOpen && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="overflow-hidden text-left">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="overflow-hidden text-left py-1">
                 <div className="flex items-center gap-1.5 mb-0.5">
-                  <p className="font-bold text-sm truncate text-gray-900">{user.name}</p>
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="Synced with server" />
+                  <p className="font-bold text-sm truncate text-gray-900">{user.name || 'User Profile'}</p>
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="System Verified" />
                 </div>
-                <p className="text-[10px] uppercase font-black tracking-widest text-[#88C13E]">{user.role}</p>
+                <p className="text-[10px] uppercase font-black tracking-widest text-[#88C13E]">
+                  {user.position}
+                </p>
               </motion.div>
             )}
           </button>
@@ -169,12 +304,51 @@ export default function App() {
               />
             </div>
             
-            <button className="relative p-2.5 text-gray-400 hover:text-[#4A773C] hover:bg-gray-50 rounded-xl transition-all">
-              <Bell size={20} />
-              <span className="absolute top-3 right-3 w-2 h-2 bg-[#88C13E] rounded-full border-2 border-white shadow-sm" />
-            </button>
+            <div className="relative" ref={notificationRef}>
+              <button 
+                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                className={`relative p-2.5 rounded-xl transition-all ${isNotificationsOpen ? 'bg-[#4A773C] text-white' : 'text-gray-400 hover:text-[#4A773C] hover:bg-gray-50'}`}
+              >
+                <Bell size={20} />
+                {notifications.some(n => !n.readBy.includes((sessionUser as any)?.id)) && (
+                  <span className={`absolute top-3 right-3 w-2 h-2 rounded-full border-2 border-white shadow-sm ${
+                    notifications.some(n => !n.readBy.includes((sessionUser as any)?.id) && n.assignedToUserIds.includes(sessionUser?.name || ''))
+                      ? 'bg-rose-500 animate-pulse ring-2 ring-rose-200'
+                      : 'bg-[#88C13E]'
+                  }`} />
+                )}
+              </button>
+
+              <AnimatePresence>
+                {isNotificationsOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                    className="absolute right-0"
+                  >
+                    <NotificationDropdown 
+                      notifications={notifications}
+                      onMarkRead={(id) => handleMarkNotificationRead(id)}
+                      onMarkAllRead={() => handleMarkNotificationRead('all')}
+                      onNavigate={(view) => {
+                        setCurrentView(view);
+                        setIsNotificationsOpen(false);
+                      }}
+                      onClose={() => setIsNotificationsOpen(false)}
+                      currentUserId={(sessionUser as any)?.id}
+                      currentUserName={sessionUser?.name}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
             
-            <button className="p-2.5 text-gray-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
+            <button 
+              onClick={logout}
+              className="p-2.5 text-rose-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+              title="Sign Out"
+            >
               <LogOut size={20} />
             </button>
           </div>
@@ -209,6 +383,9 @@ export default function App() {
               )}
               {currentView === 'logs' && (
                 <HandoverLogs handovers={handovers} tasks={tasks} onUpdate={refreshData} />
+              )}
+              {currentView === 'users' && sessionUser?.role === 'ADMIN' && (
+                <UserManagement />
               )}
             </motion.div>
           </AnimatePresence>
@@ -249,16 +426,18 @@ export default function App() {
                     type="text"
                     value={editUser.name}
                     onChange={e => setEditUser({...editUser, name: e.target.value})}
-                    className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-[#88C13E] transition-all font-bold"
+                    placeholder="Enter your full name"
+                    className="w-full p-4 bg-white border-2 border-gray-100 rounded-2xl outline-none focus:border-[#88C13E] focus:ring-4 focus:ring-[#88C13E]/10 transition-all font-bold text-gray-900"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Designation / Role</label>
+                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">IT Position / Role</label>
                   <input 
                     type="text"
-                    value={editUser.role}
-                    onChange={e => setEditUser({...editUser, role: e.target.value})}
-                    className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-[#88C13E] transition-all font-bold"
+                    value={editUser.position}
+                    onChange={e => setEditUser({...editUser, position: e.target.value})}
+                    placeholder="e.g. IT Support Engineer"
+                    className="w-full p-4 bg-white border-2 border-gray-100 rounded-2xl outline-none focus:border-[#88C13E] focus:ring-4 focus:ring-[#88C13E]/10 transition-all font-bold text-gray-900"
                   />
                 </div>
                 <div className="space-y-2">
@@ -267,7 +446,19 @@ export default function App() {
                     type="email"
                     value={editUser.email}
                     onChange={e => setEditUser({...editUser, email: e.target.value})}
-                    className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-[#88C13E] transition-all font-bold"
+                    placeholder="your.email@helloconnect.org"
+                    className="w-full p-4 bg-white border-2 border-gray-100 rounded-2xl outline-none focus:border-[#88C13E] focus:ring-4 focus:ring-[#88C13E]/10 transition-all font-bold text-gray-900"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Update Password (Optional)</label>
+                  <input 
+                    type="password"
+                    value={editUser.password || ''}
+                    onChange={e => setEditUser({...editUser, password: e.target.value})}
+                    placeholder="New Secure Password"
+                    className="w-full p-4 bg-white border-2 border-gray-100 rounded-2xl outline-none focus:border-[#88C13E] focus:ring-4 focus:ring-[#88C13E]/10 transition-all font-bold text-gray-900"
                   />
                 </div>
 
