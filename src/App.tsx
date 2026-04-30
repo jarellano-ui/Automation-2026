@@ -19,7 +19,8 @@ import {
   ChevronRight,
   Calendar,
   Users,
-  Shield
+  Shield,
+  MessageSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { View, Task, Handover, Notification } from './types';
@@ -34,6 +35,7 @@ import ITSchedule from './components/ITSchedule';
 import LoginPage from './components/LoginPage';
 import UserManagement from './components/UserManagement';
 import NotificationDropdown from './components/NotificationDropdown';
+import { FeedbackTab } from './components/FeedbackTab';
 
 import { auth as authService, UserProfile } from './services/auth';
 import { useAuth } from './contexts/AuthContext';
@@ -177,6 +179,7 @@ export default function App() {
     { id: 'handover', label: 'Next Shift Endorsement', icon: ArrowRightLeft },
     { id: 'schedule', label: 'IT Schedule', icon: Calendar },
     { id: 'logs', label: 'Activity Logs', icon: History },
+    { id: 'feedback', label: 'Feedback', icon: MessageSquare },
   ];
 
   if (sessionUser?.role === 'ADMIN') {
@@ -310,9 +313,9 @@ export default function App() {
                 className={`relative p-2.5 rounded-xl transition-all ${isNotificationsOpen ? 'bg-[#4A773C] text-white' : 'text-gray-400 hover:text-[#4A773C] hover:bg-gray-50'}`}
               >
                 <Bell size={20} />
-                {notifications.some(n => !n.readBy.includes((sessionUser as any)?.id)) && (
+                {notifications.some(n => !(n.readBy || []).includes((sessionUser as any)?.id)) && (
                   <span className={`absolute top-3 right-3 w-2 h-2 rounded-full border-2 border-white shadow-sm ${
-                    notifications.some(n => !n.readBy.includes((sessionUser as any)?.id) && n.assignedToUserIds.includes(sessionUser?.name || ''))
+                    notifications.some(n => !(n.readBy || []).includes((sessionUser as any)?.id) && (n.assignedToUserIds || []).includes(sessionUser?.name || ''))
                       ? 'bg-rose-500 animate-pulse ring-2 ring-rose-200'
                       : 'bg-[#88C13E]'
                   }`} />
@@ -386,6 +389,9 @@ export default function App() {
               )}
               {currentView === 'users' && sessionUser?.role === 'ADMIN' && (
                 <UserManagement />
+              )}
+              {currentView === 'feedback' && (
+                <FeedbackTab currentUser={{ id: (sessionUser as any).id, name: sessionUser.name, role: sessionUser.role }} />
               )}
             </motion.div>
           </AnimatePresence>

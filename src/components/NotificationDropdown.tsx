@@ -35,7 +35,7 @@ export default function NotificationDropdown({
   currentUserId,
   currentUserName
 }: NotificationDropdownProps) {
-  const unreadCount = notifications.filter(n => !n.readBy.includes(currentUserId || '')).length;
+  const unreadCount = notifications.filter(n => !(n.readBy || []).includes(currentUserId || '')).length;
 
   const formatTime = (timestamp: number) => {
     const now = Date.now();
@@ -69,8 +69,8 @@ export default function NotificationDropdown({
         {notifications.length > 0 ? (
           <div className="divide-y divide-gray-50">
             {notifications.map((n) => {
-              const isUnread = !n.readBy.includes(currentUserId || '');
-              const isAssignedToMe = currentUserName && n.assignedToUserIds.includes(currentUserName);
+              const isUnread = !(n.readBy || []).includes(currentUserId || '');
+              const isAssignedToMe = currentUserName && (n.assignedToUserIds || []).includes(currentUserName);
               
               return (
                 <button

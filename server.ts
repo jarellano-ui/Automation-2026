@@ -29,6 +29,7 @@ async function startServer() {
       handovers: [], 
       tasks: [],
       notifications: [],
+      feedback: [],
       users: [
         {
           id: "admin-1",
@@ -50,6 +51,7 @@ async function startServer() {
     const db = JSON.parse(fs.readFileSync(DB_FILE, "utf-8"));
     if (!db.users) db.users = [];
     if (!db.notifications) db.notifications = [];
+    if (!db.feedback) db.feedback = [];
     return db;
   };
   const saveDB = (db: any) => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
@@ -309,6 +311,36 @@ async function startServer() {
     
     saveDB(db);
     res.json({ status: "ok" });
+  });
+
+  app.get("/api/feedback", (req, res) => {
+    const db = getDB();
+    res.json(db.feedback || []);
+  });
+
+  app.post("/api/feedback", (req, res) => {
+    const db = getDB();
+    const newFeedback = {
+      ...req.body,
+      id: generateId(),
+      timestamp: Date.now(),
+      status: 'new'
+    };
+    if (!db.feedback) db.feedback = [];
+    db.feedback.push(newFeedback);
+    saveDB(db);
+    res.json(newFeedback);
+  });
+
+  app.put("/api/feedback/:id", (req, res) => {
+    const db = getDB();
+    const { id } = req.params;
+    const index = db.feedback.findIndex((f: any) => f.id === id);
+    if (index === -1) return res.status(404).json({ error: "Feedback not found" });
+    
+    db.feedback[index] = { ...db.feedback[index], ...req.body };
+    saveDB(db);
+    res.json(db.feedback[index]);
   });
 
   app.get("/api/proxy-sheet", async (req, res) => {

@@ -6,5 +6,5 @@ export const IT_TEAM = [
   'Ron Amil Villa',
   'Rex Mayordo',
   'Kellie Joyce Anne Perez',
-  'Kristel Mae Davelles'
+  'Kristel Mae Develles'
 ];

@@ -42,7 +42,18 @@ export interface Handover {
   comments?: Comment[];
 }
 
-export type View = 'dashboard' | 'tasks' | 'handover' | 'logs' | 'schedule' | 'users';
+export type View = 'dashboard' | 'tasks' | 'handover' | 'logs' | 'schedule' | 'users' | 'feedback';
+
+export interface Feedback {
+  id: string;
+  userId: string;
+  userName: string;
+  type: 'bug' | 'suggestion' | 'issue';
+  title: string;
+  message: string;
+  timestamp: number;
+  status: 'new' | 'investigating' | 'resolved';
+}
 
 export interface Notification {
   id: string;

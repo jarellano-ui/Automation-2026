@@ -94,5 +94,40 @@ export const storage = {
     } catch (e) {
       console.error('Error marking notification as read', e);
     }
+  },
+
+  getFeedback: async (): Promise<any[]> => {
+    try {
+      const response = await fetch('/api/feedback');
+      if (!response.ok) throw new Error('Failed to fetch feedback');
+      return await response.json();
+    } catch (e) {
+      console.error('Error fetching feedback', e);
+      return [];
+    }
+  },
+
+  sendFeedback: async (feedback: any): Promise<void> => {
+    try {
+      await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(feedback),
+      });
+    } catch (e) {
+      console.error('Error sending feedback', e);
+    }
+  },
+
+  updateFeedbackStatus: async (id: string, status: string): Promise<void> => {
+    try {
+      await fetch(`/api/feedback/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+    } catch (e) {
+      console.error('Error updating feedback status', e);
+    }
   }
 };
